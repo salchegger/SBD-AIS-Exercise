@@ -11,10 +11,13 @@ import (
 	"gorm.io/gorm"
 )
 
+// Holds the connection to the PostgreSQL database via GORM
 type DatabaseHandler struct {
 	dbConn *gorm.DB
 }
 
+// Connects to the DB, auto-migrates tables (`Drink` & `Order`),
+// and calls `prepopulate()` to insert test data if empty
 func NewDatabaseHandler() (*DatabaseHandler, error) {
 	slog.Info("Connecting to database")
 	// connect to db
@@ -39,6 +42,7 @@ func NewDatabaseHandler() (*DatabaseHandler, error) {
 	return &DatabaseHandler{dbConn: dbConn}, nil
 }
 
+// Builds the Postgres connection string from environment variables
 func getDsn() (string, error) {
 	dbUser, ok := os.LookupEnv("POSTGRES_USER")
 	if !ok {
@@ -65,6 +69,7 @@ func getDsn() (string, error) {
 	return dsn, nil
 }
 
+// Intended to insert initial drinks and orders
 func prepopulate(dbConn *gorm.DB) error {
 	// check if prepopulate has already run once
 	var exists bool
@@ -81,12 +86,36 @@ func prepopulate(dbConn *gorm.DB) error {
 	}
 	// create drink menu
 	// todo create drinks
-	// todo create orders
+	drinks := []model.Drink{
+		{Name: "Red Bull Peach", Price: 2.5, Description: "Peachy-flavored rocket fuel"},
+		{Name: "Club-Mate", Price: 3.5, Description: "Hipster energy, slightly bitter"},
+		{Name: "Espresso", Price: 2, Description: "Strong, bitter and dark"},
+		{Name: "Pumpkin Spice Latte", Price: 4.5, Description: "Warm, cozy, sugary spice"},
+		{Name: "Thai Iced Tea", Price: 5.0, Description: "Heavenly, icy refreshment bliss"},
+	}
+	if err := dbConn.Create(&drinks).Error; err != nil {
+		return err
+	}
+
+	// todo create orders (only DrinkID + Amount)
+	orders := []model.Order{
+		{DrinkID: drinks[0].ID, Amount: 4},
+		{DrinkID: drinks[1].ID, Amount: 2},
+		{DrinkID: drinks[2].ID, Amount: 6},
+		{DrinkID: drinks[3].ID, Amount: 3},
+		{DrinkID: drinks[4].ID, Amount: 7},
+	}
+	if err := dbConn.Create(&orders).Error; err != nil {
+		return err
+	}
+
 	// GORM documentation can be found here: https://gorm.io/docs/index.html
 
 	return nil
 }
 
+// The following 3 functions:
+// Retrieve drinks, orders, or summarized order totals from DB
 func (db *DatabaseHandler) GetDrinks() (drinks []model.Drink, err error) {
 	err = db.dbConn.Find(&drinks).Error
 	if err != nil {
@@ -113,6 +142,7 @@ func (db *DatabaseHandler) GetTotalledOrders() (totals []model.DrinkOrderTotal, 
 	return totals, nil
 }
 
+// Adds a new order to the DB
 func (db *DatabaseHandler) AddOrder(order *model.Order) error {
 	err := db.dbConn.Create(order).Error
 	if err != nil {
