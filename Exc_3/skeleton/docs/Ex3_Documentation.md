@@ -355,6 +355,10 @@ orders := []model.Order{
 - GORM handles table creation and data insertion automatically
 - This makes the app usable immediately after running `./scripts/run.sh`, no manual setup required
 
+**Verification that my data was inserted correctly:**  
+- when we open `http://localhost:3000` in the browser, we should see the populated frontend with all our data  
+
+![Application in Browser](image-5.png)
 
 ## 10. Connecting the Database viewer to the DB
 **Chosen DB viewer: GoLand**  
@@ -384,7 +388,7 @@ We need to connect to the **PostgrSQL container** using the environment variable
 |User| docker|
 |Password| docker|
 |Database| order|
-|
+
 
 
 #### Step 5: Test the Connection
