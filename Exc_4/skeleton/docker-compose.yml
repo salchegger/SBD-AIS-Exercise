@@ -1,0 +1,41 @@
+# todo
+
+services:
+  ordersystem-db:
+    image: postgres:18                        #Use official Postgres 18 image
+    container_name: ordersystem-db            #Fixed container name from EXc_3 for easy reference
+    environment:
+      POSTGRES_DB: order                      #Database name
+      POSTGRES_USER: docker                   #DB username
+      POSTGRES_PASSWORD: docker               #DB password
+      PGDATA: /var/lib/postgresql/data        #Customed data directory
+    volumes:
+      - pgdata_sbd:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"                           #Expose DB to host
+    networks:
+      - sbdnetwork                            #Join custom network
+
+  orderservice:
+    build:
+      context: .                              #Build from current folder
+      dockerfile: Dockerfile                  #Use provided Dockerfile
+    container_name: orderservice              #Fixed container name
+    environment:
+      POSTGRES_DB: order                      #Match Database name
+      POSTGRES_USER: docker                   #Match DB username
+      POSTGRES_PASSWORD: docker               #Match DB password
+      POSTGRES_TCP_PORT: 5432                 #DB port inside container
+      DB_HOST: ordersystem-db                 #Connect using container name
+    ports:
+      - "3000:3000"                           #Expose app to host
+    depends_on:
+      - ordersystem-db                        #Ensure DB starts first
+    networks:
+      - sbdnetwork                            #Same network as DB
+
+volumes:
+  pgdata_sbd:                                 #Named volume for Postgres persistence
+
+networks:
+  sbdnetwork:                                 #Custom network for container communication
