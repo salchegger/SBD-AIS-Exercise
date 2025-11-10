@@ -25,7 +25,7 @@ services:
       POSTGRES_DB: order                      #Match Database name
       POSTGRES_USER: docker                   #Match DB username
       POSTGRES_PASSWORD: docker               #Match DB password
-      POSTGRES_TCP_PORT: 5432                 #DB port inside container
+      POSTGRES_TCP_PORT: 55432                 #DB port inside container
       DB_HOST: ordersystem-db                 #Connect using container name
     ports:
       - "3000:3000"                           #Expose app to host
