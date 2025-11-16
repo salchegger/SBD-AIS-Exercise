@@ -1,0 +1,109 @@
+networks:
+  web:
+    name: web
+  intercom:
+    name: intercom
+
+volumes:
+  order_pg_vol:
+  # todo
+  order_minio_vol:
+
+services:
+  traefik:
+    image: "traefik:v3.5.2"
+    container_name: traefik
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=web"
+      - "--entryPoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      # Add Docker as a mounted volume, so that Traefik can read the labels of other services
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - web
+    restart: unless-stopped
+
+  orderservice:
+    container_name: orderservice
+    build: .
+    restart: unless-stopped
+    command: [ "/app/ordersystem" ]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.orders.rule=Host(`orders.localhost`)"
+      - "traefik.http.routers.orders.entrypoints=web"
+      - "traefik.http.services.orders.loadbalancer.server.port=3000"
+    environment:
+      - POSTGRES_DB=order
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+      - PGPORT=5555
+      - DB_HOST=order-postgres
+      - S3_ACCESS_KEY_ID=root
+      - S3_SECRET_ACCESS_KEY=topsecret
+      - S3_ENDPOINT=order-minio:8500
+    networks:
+      - intercom
+      - web
+
+  sws:
+    image: joseluisq/static-web-server:latest
+    container_name: sws
+    environment:
+      - SERVER_PORT=80
+      - SERVER_ROOT=/public
+    volumes:
+      - ./frontend:/public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sws.rule=Host(`localhost`)"
+      - "traefik.http.routers.sws.entrypoints=web"
+    networks:
+      - intercom
+      - web
+
+  order-postgres:
+    image: postgres:18
+    volumes:
+      - order_pg_vol:/var/lib/postgresql
+    restart: always
+    networks:
+      - intercom
+    ports:
+      - "5555:5555"
+    environment:
+      - POSTGRES_DB=order
+      - POSTGRES_USER=docker
+      - POSTGRES_PASSWORD=docker
+      - PGPORT=5555
+
+  order-minio:
+    # todo use minio/minio:latest as image
+    image: minio/minio:latest
+    container_name: order-minio
+    # use the following commands: "server", "--address", ":8500", "/data"
+    command: ["server", "/data", "--address", ":8500", "--console-address", ":42143"]
+    # set environment variables MINIO_ROOT_USER and MINIO_ROOT_PASSWORD
+    environment:
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=topsecret
+    # map the data volume
+    volumes:
+      - order_minio_vol:/data
+    # expose 8500
+    ports:
+      - "8500:8500"      # API
+      - "42143:42143"    # Web console
+    # add to network intercom
+    networks:
+      - intercom
+    restart: unless-stopped
+
+
