@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Drink Menu & Orders</title>
+    <script src="https://cdn.plot.ly/plotly-3.1.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            background: #f4f4f4;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #totalledChart, #ordersChart {
+            min-height: 500px;
+        }
+
+        /* Flex container for side-by-side forms */
+        .forms-container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 768px) {
+            .forms-container {
+                flex-direction: column;
+            }
+        }
+
+        /* Shared form styles */
+        .order-form, .receipt-form {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+            flex: 1;
+            min-width: 300px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .order-form h2, .receipt-form h2 {
+            margin-top: 0;
+            font-size: 1.4em;
+        }
+
+        .order-form label, .receipt-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .order-form select, .order-form input[type="number"],
+        .receipt-form input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .order-form button, .receipt-form button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+
+        .order-form button:hover, .receipt-form button:hover {
+            background-color: #45a049;
+        }
+
+        .order-form button:disabled, .receipt-form button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .message {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Drink Menu</h1>
+<ul id="menu-list">Loading menu...</ul>
+
+<!-- Side-by-side Forms -->
+<div class="forms-container">
+    <!-- Place Order Form -->
+    <div class="order-form">
+        <h2>Place an Order</h2>
+        <form id="orderForm">
+            <label for="drinkSelect">Select Drink:</label>
+            <select id="drinkSelect" required>
+                <option value="">-- Choose a drink --</option>
+            </select>
+
+            <label for="amountInput">Amount:</label>
+            <input type="number" id="amountInput" min="1" value="1" required>
+
+            <button type="submit">Submit Order</button>
+        </form>
+        <div id="orderMessage"></div>
+    </div>
+
+    <!-- Download Receipt Form -->
+    <div class="receipt-form">
+        <h2>Download Receipt</h2>
+        <form id="receiptForm">
+            <label for="receiptOrderId">Order ID:</label>
+            <input type="number" id="receiptOrderId" min="1" placeholder="e.g. 42" required>
+
+            <button type="submit">Download Markdown Receipt</button>
+        </form>
+        <div id="receiptMessage"></div>
+    </div>
+</div>
+
+<h2>Total Orders</h2>
+<div id="totalledChart"></div>
+
+<h2>Order History</h2>
+<div id="ordersChart"></div>
+
+<script>
+    const barColors = ['#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3', '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'];
+
+    const menuList = document.getElementById("menu-list");
+    const drinkSelect = document.getElementById("drinkSelect");
+    const orderForm = document.getElementById("orderForm");
+    const orderMessage = document.getElementById("orderMessage");
+    const receiptForm = document.getElementById("receiptForm");
+    const receiptOrderIdInput = document.getElementById("receiptOrderId");
+    const receiptMessage = document.getElementById("receiptMessage");
+    const totalledChartDiv = document.getElementById("totalledChart");
+    const ordersChartDiv = document.getElementById("ordersChart");
+
+    const drinkMap = new Map(); // drink_id => drink object
+
+    // Fetch and display the drink menu
+    fetch("http://orders.localhost/api/menu")
+        .then(res => res.json())
+        .then(drinks => {
+            menuList.innerHTML = "";
+            drinkSelect.innerHTML = '<option value="">-- Choose a drink --</option>'; // Reset
+
+            drinks.forEach(drink => {
+                drinkMap.set(drink.id, drink);
+
+                // Add to menu list
+                const li = document.createElement("li");
+                li.textContent = `${drink.name} - $${drink.price.toFixed(2)} (${drink.description})`;
+                menuList.appendChild(li);
+
+                // Add to dropdown
+                const option = document.createElement("option");
+                option.value = drink.id;
+                option.textContent = `${drink.name} ($${drink.price.toFixed(2)})`;
+                drinkSelect.appendChild(option);
+            });
+
+            // After loading drinks, load orders and enable forms
+            loadOrderTotalled();
+            loadOrders();
+            orderForm.addEventListener('submit', handleOrderSubmit);
+            receiptForm.addEventListener('submit', handleReceiptDownload);
+        })
+        .catch(err => {
+            console.error("Failed to load menu:", err);
+            menuList.innerHTML = "<li>Error loading menu.</li>";
+            drinkSelect.innerHTML = '<option value="">Error loading drinks</option>';
+        });
+
+    // Handle order submission
+    async function handleOrderSubmit(e) {
+        e.preventDefault();
+        clearMessage(orderMessage);
+
+        const drink_id = parseInt(drinkSelect.value);
+        const amount = parseInt(document.getElementById("amountInput").value);
+
+        if (!drink_id || amount < 1) {
+            showMessage(orderMessage, "Please select a drink and enter a valid amount.", "error");
+            return;
+        }
+
+        const orderData = { drink_id, amount };
+
+        try {
+            const response = await fetch("http://orders.localhost/api/order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(orderData)
+            });
+
+            if (response.ok) {
+                showMessage(orderMessage, `Order placed: ${amount} × ${drinkMap.get(drink_id).name}`, "success");
+
+                orderForm.reset();
+                drinkSelect.selectedIndex = 0;
+                document.getElementById("amountInput").value = 1;
+
+                // Refresh charts
+                loadOrderTotalled();
+                loadOrders();
+            } else {
+                const errorText = await response.text();
+                showMessage(orderMessage, `Failed: ${response.status} ${errorText}`, "error");
+            }
+        } catch (err) {
+            console.error("Order submission error:", err);
+            showMessage(orderMessage, "Network error. Please try again.", "error");
+        }
+    }
+
+    // Handle receipt download
+    async function handleReceiptDownload(e) {
+        e.preventDefault();
+        clearMessage(receiptMessage);
+
+        const orderId = parseInt(receiptOrderIdInput.value);
+        if (!orderId || orderId < 1) {
+            showMessage(receiptMessage, "Please enter a valid Order ID.", "error");
+            return;
+        }
+
+        const url = `http://orders.localhost/api/receipt/${orderId}`;
+
+        try {
+            const response = await fetch(url);
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = downloadUrl;
+                a.download = `order_${orderId}.md`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                document.body.removeChild(a);
+
+                showMessage(receiptMessage, `Receipt #${orderId} downloaded!`, "success");
+                receiptForm.reset();
+            } else if (response.status === 404) {
+                showMessage(receiptMessage, `Order #${orderId} not found.`, "error");
+            } else {
+                const errorText = await response.text();
+                showMessage(receiptMessage, `Error ${response.status}: ${errorText}`, "error");
+            }
+        } catch (err) {
+            console.error("Receipt download failed:", err);
+            showMessage(receiptMessage, "Network error. Try again.", "error");
+        }
+    }
+
+    // Utility: Show message
+    function showMessage(el, text, type) {
+        el.textContent = text;
+        el.className = `message ${type}`;
+    }
+
+    function clearMessage(el) {
+        el.textContent = '';
+        el.className = '';
+    }
+
+    // Load totalled orders chart
+    function loadOrderTotalled() {
+        fetch("http://orders.localhost/api/order/totalled")
+            .then(res => res.json())
+            .then(orders => {
+                const labels = [];
+                const values = [];
+                const total_cost = [];
+
+                for (const order of orders) {
+                    const drink = drinkMap.get(parseInt(order.drink_id));
+                    if (drink) {
+                        labels.push(drink.name);
+                        values.push(order.total_amount_ordered);
+                        total_cost.push((drink.price * order.total_amount_ordered).toFixed(2) + " €");
+                    }
+                }
+
+                if (labels.length === 0) {
+                    totalledChartDiv.textContent = "No orders to display.";
+                    return;
+                }
+
+                const data = [{
+                    x: labels,
+                    y: values,
+                    type: 'bar',
+                    text: total_cost,
+                    textposition: 'auto',
+                    marker: {
+                        color: barColors,
+                        line: {
+                            color: 'rgba(0, 0, 0, 0.7)',
+                            width: 0.5
+                        }
+                    }
+                }];
+
+                const layout = {
+                    title: 'Total Drink Orders',
+                    xaxis: {title: 'Drink'},
+                    yaxis: {title: 'Number of Orders', dtick: 1},
+                    margin: {t: 50, l: 50, r: 30, b: 80}
+                };
+
+                Plotly.newPlot('totalledChart', data, layout, {responsive: true});
+            })
+            .catch(err => {
+                console.error("Failed to load orders:", err);
+                totalledChartDiv.textContent = "Error loading orders.";
+            });
+    }
+
+    // Load cumulative order history
+    function loadOrders() {
+        fetch("http://orders.localhost/api/order/all")
+            .then(res => res.json())
+            .then(orders => {
+                if (orders.length === 0) {
+                    ordersChartDiv.textContent = "No orders to display.";
+                    return;
+                }
+
+                // Sort by time
+                orders.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+                // Accumulate orders over time
+                const timeMap = new Map();
+                let cumulativeTotal = 0;
+
+                for (const order of orders) {
+                    const time = new Date(order.created_at);
+                    const timeKey = time.toISOString().slice(0, 16); // Round to minute
+                    const existing = timeMap.get(timeKey) || 0;
+                    timeMap.set(timeKey, existing + order.amount);
+                }
+
+                // Generate cumulative data
+                const sortedTimes = Array.from(timeMap.keys()).sort();
+                const times = [];
+                const cumulativeValues = [];
+
+                for (const timeKey of sortedTimes) {
+                    cumulativeTotal += timeMap.get(timeKey);
+                    times.push(timeKey);
+                    cumulativeValues.push(cumulativeTotal);
+                }
+
+                // Plot
+                const trace = {
+                    x: times,
+                    y: cumulativeValues,
+                    mode: 'lines+markers',
+                    type: 'scatter',
+                    name: 'Cumulative Orders',
+                    line: { shape: 'linear', color: 'blue' }
+                };
+
+                const layout = {
+                    title: 'Cumulative Orders Over Time',
+                    xaxis: { title: 'Time' },
+                    yaxis: { title: 'Total Orders' }
+                };
+
+                Plotly.newPlot('ordersChart', [trace], layout);
+            })
+            .catch(err => {
+                console.error("Failed to load orders:", err);
+                ordersChartDiv.textContent = "Error loading orders.";
+            });
+    }
+</script>
+</body>
+</html>
