@@ -1,0 +1,51 @@
+Top 50 most frequent words in Meditations:
+ 1. and             3332
+ 2. the             2805
+ 3. of              2530
+ 4. to              2067
+ 5. that            1957
+ 6. is              1457
+ 7. it              1192
+ 8. in              1190
+ 9. a               1144
+10. be              1004
+11. as              944
+12. or              850
+13. thou            821
+14. for             820
+15. not             730
+16. all             685
+17. which           612
+18. but             575
+19. he              570
+20. things          554
+21. with            522
+22. i               485
+23. by              478
+24. so              469
+25. this            457
+26. are             447
+27. his             447
+28. unto            439
+29. they            417
+30. what            379
+31. if              366
+32. from            351
+33. thy             347
+34. any             346
+35. one             333
+36. man             324
+37. thee            312
+38. them            308
+39. have            296
+40. nature          268
+41. was             264
+42. do              255
+43. doth            253
+44. at              247
+45. either          240
+46. such            235
+47. my              226
+48. those           224
+49. no              218
+50. then            218

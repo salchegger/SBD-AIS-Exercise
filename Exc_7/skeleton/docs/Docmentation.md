@@ -359,7 +359,7 @@ For disabling Swarm and shut it down entirely:
 - This returns Docker to normal “single engine” mode.
 
 
-## 8. Summary
+## 9. Summary
 At the end of this exercise:
 - I deployed a full microservice application on a local Swarm cluster.
 - I used Swarm Secrets, overlay networks, volumes, and Traefik routing.
